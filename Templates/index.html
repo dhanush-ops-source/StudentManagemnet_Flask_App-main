@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management System</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <a href="/" class="brand">
+            <span class="brand-icon">S</span>
+            <span>StudentHub</span>
+        </a>
+
+        <p class="menu-label">MAIN MENU</p>
+
+        <a href="/" class="menu-item active">
+            <span>▦</span> Dashboard
+        </a>
+
+        <a href="#students" class="menu-item">
+            <span>♙</span> Students
+        </a>
+
+        <div class="sidebar-footer">
+            <div class="profile-avatar">A</div>
+            <div>
+                <strong>Administrator</strong>
+                <small>Management Portal</small>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <header class="topbar">
+            <div>
+                <p class="breadcrumb-text">Pages / Dashboard</p>
+                <h1>Student Dashboard</h1>
+            </div>
+
+            <div class="admin-badge">
+                <span class="status-dot"></span>
+                Admin Panel
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages-container">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category in ['error', 'danger'] else 'success' if category == 'success' else 'warning' if category == 'warning' else 'info' }} alert-dismissible fade show custom-alert" role="alert">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="alert-icon">
+                                    {% if category == 'success' %}✓{% elif category in ['danger', 'error'] %}⚠{% else %}ℹ{% endif %}
+                                </span>
+                                <div>{{ message }}</div>
+                            </div>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Welcome Section -->
+        <section class="welcome-card">
+            <div>
+                <p class="welcome-label">STUDENT MANAGEMENT</p>
+                <h2>Welcome back, Dhanush!</h2>
+                <p>Manage student information easily from one place.</p>
+            </div>
+            <div class="welcome-symbol">✦</div>
+        </section>
+
+        <!-- Statistics Cards -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon blue">♙</div>
+                <p>Total Students</p>
+                <h3>{{ total_students }}</h3>
+                <small>Registered students</small>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon green">✓</div>
+                <p>Active Records</p>
+                <h3>{{ active_records }}</h3>
+                <small>Available in the system</small>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon purple">@</div>
+                <p>Email Records</p>
+                <h3>{{ email_records }}</h3>
+                <small>Contact information</small>
+            </div>
+        </section>
+
+        <!-- Student Table & Filter Section -->
+        <section class="content-card" id="students">
+            <div class="section-heading">
+                <div>
+                    <h2>Student Directory</h2>
+                    <p>View, search, filter, and manage registered students.</p>
+                </div>
+
+                <button class="btn btn-primary add-button"
+                        type="button"
+                        data-bs-toggle="modal"
+                        data-bs-target="#addStudentModal">
+                    + Add Student
+                </button>
+            </div>
+
+            <!-- Search, Filter & Sort Toolbar -->
+            <form method="GET" action="/" class="filter-toolbar" id="filterForm">
+                <div class="row g-2 align-items-center">
+                    <!-- Search Input -->
+                    <div class="col-xl-3 col-lg-3 col-md-6 col-12">
+                        <div class="input-group">
+                            <span class="input-group-text filter-addon">🔍</span>
+                            <input type="text"
+                                   name="search"
+                                   class="form-control filter-input"
+                                   placeholder="Search by name, email, phone..."
+                                   value="{{ current_search }}"
+                                   aria-label="Search">
+                        </div>
+                    </div>
+
+                    <!-- Department Filter -->
+                    <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+                        <select name="department" class="form-select filter-select" onchange="this.form.submit()">
+                            <option value="">All Departments</option>
+                            {% for dept in all_departments %}
+                                <option value="{{ dept }}" {% if current_department == dept %}selected{% endif %}>{{ dept }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Course Filter -->
+                    <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+                        <select name="course" class="form-select filter-select" onchange="this.form.submit()">
+                            <option value="">All Courses</option>
+                            {% for crs in all_courses %}
+                                <option value="{{ crs }}" {% if current_course == crs %}selected{% endif %}>{{ crs }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Admission Year Filter -->
+                    <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+                        <select name="year" class="form-select filter-select" onchange="this.form.submit()">
+                            <option value="">All Years</option>
+                            {% for yr in all_years %}
+                                <option value="{{ yr }}" {% if current_year == yr|string %}selected{% endif %}>{{ yr }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Sort Dropdown -->
+                    <div class="col-xl-2 col-lg-2 col-md-3 col-6">
+                        <select name="sort" class="form-select filter-select" onchange="this.form.submit()">
+                            <option value="id_asc" {% if current_sort == 'id_asc' %}selected{% endif %}>Sort: Student ID (Asc)</option>
+                            <option value="id_desc" {% if current_sort == 'id_desc' %}selected{% endif %}>Sort: Student ID (Desc)</option>
+                            <option value="name_asc" {% if current_sort == 'name_asc' %}selected{% endif %}>Sort: Name (A to Z)</option>
+                            <option value="name_desc" {% if current_sort == 'name_desc' %}selected{% endif %}>Sort: Name (Z to A)</option>
+                        </select>
+                    </div>
+
+                    <!-- Actions: Search & Reset -->
+                    <div class="col-xl-1 col-lg-1 col-md-12 col-12 d-flex gap-1 justify-content-end">
+                        <button type="submit" class="btn btn-filter-submit w-100" title="Apply Search & Filters">Search</button>
+                        {% if is_filtered %}
+                            <a href="/" class="btn btn-filter-reset" title="Clear all search and filters">✕</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if is_filtered %}
+                    <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top">
+                        <small class="text-muted d-flex align-items-center flex-wrap gap-1">
+                            <span>Active filters:</span>
+                            {% if current_search %}
+                                <span class="badge bg-light text-dark border">Search: "{{ current_search }}"</span>
+                            {% endif %}
+                            {% if current_department %}
+                                <span class="badge bg-light text-dark border">Dept: {{ current_department }}</span>
+                            {% endif %}
+                            {% if current_course %}
+                                <span class="badge bg-light text-dark border">Course: {{ current_course }}</span>
+                            {% endif %}
+                            {% if current_year %}
+                                <span class="badge bg-light text-dark border">Year: {{ current_year }}</span>
+                            {% endif %}
+                            {% if current_sort != 'id_asc' %}
+                                <span class="badge bg-light text-dark border">
+                                    Sort: {{ 'Name (A to Z)' if current_sort == 'name_asc' else 'Name (Z to A)' if current_sort == 'name_desc' else 'ID (Desc)' }}
+                                </span>
+                            {% endif %}
+                        </small>
+                        <a href="/" class="text-danger small text-decoration-none fw-semibold">Clear Filters</a>
+                    </div>
+                {% endif %}
+            </form>
+
+            <div class="table-responsive">
+                <table class="table student-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>S.NO</th>
+                            <th>STUDENT NAME</th>
+                            <th>EMAIL ADDRESS</th>
+                            <th>PHONE NUMBER</th>
+                            <th>DEPARTMENT</th>
+                            <th>COURSE</th>
+                            <th>YEAR</th>
+                            <th>ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for student in students %}
+                        <tr>
+                            <td>#{{ loop.index }}</td>
+                            <td>
+                                <strong>{{ student[1] }}</strong>
+                                <small class="text-muted d-block" style="font-size: 11px;">ID: #{{ student[0] }}</small>
+                            </td>
+                            <td>{{ student[2] }}</td>
+                            <td>{{ student[3] }}</td>
+                            <td><span class="badge-dept">{{ student[4] }}</span></td>
+                            <td><span class="badge-course">{{ student[5] }}</span></td>
+                            <td><span class="badge-year">{{ student[6] }}</span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button type="button"
+                                            class="btn-action-edit"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#editStudentModal"
+                                            data-id="{{ student[0] }}"
+                                            data-name="{{ student[1] }}"
+                                            data-email="{{ student[2] }}"
+                                            data-phone="{{ student[3] }}"
+                                            data-department="{{ student[4] }}"
+                                            data-course="{{ student[5] }}"
+                                            data-year="{{ student[6] }}"
+                                            title="Edit Student">
+                                        Edit
+                                    </button>
+                                    <button type="button"
+                                            class="btn-action-delete"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteStudentModal"
+                                            data-id="{{ student[0] }}"
+                                            data-name="{{ student[1] }}"
+                                            title="Delete Student">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center py-4">
+                                <div class="py-3">
+                                    <div class="text-muted fs-5 mb-2">No students found matching your criteria.</div>
+                                    {% if is_filtered %}
+                                        <a href="/" class="btn btn-sm btn-outline-primary">Reset All Filters</a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="table-footer d-flex justify-content-between align-items-center">
+                <div>
+                    Showing <strong>{{ students|length }}</strong> {% if is_filtered %}of {{ total_students }}{% endif %} registered student record{{ 's' if students|length != 1 else '' }}
+                </div>
+                {% if is_filtered %}
+                    <a href="/" class="text-decoration-none small text-primary">View all students &rarr;</a>
+                {% endif %}
+            </div>
+        </section>
+
+        <footer class="page-footer">
+            StudentHub &copy; 2026. Student Management System.
+        </footer>
+
+    </main>
+</div>
+
+<!-- Datalist suggestions for Departments & Courses -->
+<datalist id="departmentOptions">
+    <option value="Computer Science">
+    <option value="Information Technology">
+    <option value="Data Science">
+    <option value="Artificial Intelligence">
+    <option value="Mechanical Engineering">
+    <option value="Electrical Engineering">
+    <option value="Civil Engineering">
+    <option value="Electronics & Communication">
+</datalist>
+
+<datalist id="courseOptions">
+    <option value="B.Tech">
+    <option value="M.Tech">
+    <option value="BCA">
+    <option value="MCA">
+    <option value="B.Sc Computer Science">
+    <option value="M.Sc Data Science">
+    <option value="BBA">
+    <option value="MBA">
+</datalist>
+
+<!-- Modal: Add Student -->
+<div class="modal fade" id="addStudentModal" tabindex="-1" aria-labelledby="addStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <form action="{{ url_for('students.add_student') }}" method="POST" id="addStudentForm" class="needs-validation" novalidate>
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="addStudentModalLabel">Add New Student</h5>
+                        <p class="modal-subtitle">Fill in the student details to register them in the system.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="add_name" class="modal-label">Student Name <span class="text-danger">*</span></label>
+                        <input type="text"
+                               class="form-control custom-input"
+                               id="add_name"
+                               name="name"
+                               placeholder="e.g. Keerthi Vishwakarma"
+                               required
+                               maxlength="100">
+                        <div class="invalid-feedback">Please enter the student's name.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_email" class="modal-label">Email Address <span class="text-danger">*</span></label>
+                        <input type="email"
+                               class="form-control custom-input"
+                               id="add_email"
+                               name="email"
+                               placeholder="e.g. keerthi@example.com"
+                               required
+                               maxlength="150">
+                        <div class="invalid-feedback">Please enter a valid email address.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_phone" class="modal-label">Phone Number <span class="text-danger">*</span></label>
+                        <input type="tel"
+                               class="form-control custom-input"
+                               id="add_phone"
+                               name="phone"
+                               placeholder="e.g. 9876789087"
+                               required
+                               pattern="^\+?[0-9]{10,15}$"
+                               maxlength="15">
+                        <div class="invalid-feedback">Please enter a valid phone number (10 to 15 digits).</div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="add_department" class="modal-label">Department <span class="text-danger">*</span></label>
+                            <input type="text"
+                                   list="departmentOptions"
+                                   class="form-control custom-input"
+                                   id="add_department"
+                                   name="department"
+                                   placeholder="e.g. Computer Science"
+                                   value="Computer Science"
+                                   required
+                                   maxlength="100">
+                            <div class="invalid-feedback">Please specify department.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="add_course" class="modal-label">Course <span class="text-danger">*</span></label>
+                            <input type="text"
+                                   list="courseOptions"
+                                   class="form-control custom-input"
+                                   id="add_course"
+                                   name="course"
+                                   placeholder="e.g. B.Tech"
+                                   value="B.Tech"
+                                   required
+                                   maxlength="100">
+                            <div class="invalid-feedback">Please specify course.</div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_admission_year" class="modal-label">Admission Year <span class="text-danger">*</span></label>
+                        <input type="number"
+                               class="form-control custom-input"
+                               id="add_admission_year"
+                               name="admission_year"
+                               value="2024"
+                               min="1950"
+                               max="2100"
+                               required>
+                        <div class="invalid-feedback">Please enter a valid admission year (e.g. 2024).</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn modal-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn modal-btn-submit">+ Add Student</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Student -->
+<div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <form action="{{ url_for('students.edit_student') }}" method="POST" id="editStudentForm" class="needs-validation" novalidate>
+                <input type="hidden" name="id" id="edit_student_id">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title" id="editStudentModalLabel">Edit Student Details</h5>
+                        <p class="modal-subtitle">Modify the student details and save changes.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_name" class="modal-label">Student Name <span class="text-danger">*</span></label>
+                        <input type="text"
+                               class="form-control custom-input"
+                               id="edit_name"
+                               name="name"
+                               required
+                               maxlength="100">
+                        <div class="invalid-feedback">Please enter the student's name.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_email" class="modal-label">Email Address <span class="text-danger">*</span></label>
+                        <input type="email"
+                               class="form-control custom-input"
+                               id="edit_email"
+                               name="email"
+                               required
+                               maxlength="150">
+                        <div class="invalid-feedback">Please enter a valid email address.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_phone" class="modal-label">Phone Number <span class="text-danger">*</span></label>
+                        <input type="tel"
+                               class="form-control custom-input"
+                               id="edit_phone"
+                               name="phone"
+                               required
+                               pattern="^\+?[0-9]{10,15}$"
+                               maxlength="15">
+                        <div class="invalid-feedback">Please enter a valid phone number (10 to 15 digits).</div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_department" class="modal-label">Department <span class="text-danger">*</span></label>
+                            <input type="text"
+                                   list="departmentOptions"
+                                   class="form-control custom-input"
+                                   id="edit_department"
+                                   name="department"
+                                   required
+                                   maxlength="100">
+                            <div class="invalid-feedback">Please specify department.</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_course" class="modal-label">Course <span class="text-danger">*</span></label>
+                            <input type="text"
+                                   list="courseOptions"
+                                   class="form-control custom-input"
+                                   id="edit_course"
+                                   name="course"
+                                   required
+                                   maxlength="100">
+                            <div class="invalid-feedback">Please specify course.</div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_admission_year" class="modal-label">Admission Year <span class="text-danger">*</span></label>
+                        <input type="number"
+                               class="form-control custom-input"
+                               id="edit_admission_year"
+                               name="admission_year"
+                               min="1950"
+                               max="2100"
+                               required>
+                        <div class="invalid-feedback">Please enter a valid admission year (e.g. 2024).</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn modal-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn modal-btn-submit">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Delete Student Confirmation -->
+<div class="modal fade" id="deleteStudentModal" tabindex="-1" aria-labelledby="deleteStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <form action="{{ url_for('students.delete_student') }}" method="POST" id="deleteStudentForm">
+                <input type="hidden" name="id" id="delete_student_id">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title text-danger fw-bold" id="deleteStudentModalLabel">Delete Student</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="delete-icon-box">🗑</div>
+                        <div>
+                            <p class="mb-1 fw-bold fs-6">Are you sure you want to delete this student?</p>
+                            <p class="text-muted mb-0">Student: <strong id="delete_student_name" class="text-dark"></strong> (<span id="delete_student_badge" class="text-secondary"></span>)</p>
+                            <small class="text-secondary d-block mt-1">This action cannot be undone and will permanently remove this record from the system.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn modal-btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn modal-btn-delete">Yes, Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap 5.3.3 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Script for dynamic modal population & client-side validation -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Edit Modal population
+    const editModal = document.getElementById('editStudentModal');
+    if (editModal) {
+        editModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const id = button.getAttribute('data-id');
+            const name = button.getAttribute('data-name');
+            const email = button.getAttribute('data-email');
+            const phone = button.getAttribute('data-phone');
+            const dept = button.getAttribute('data-department');
+            const course = button.getAttribute('data-course');
+            const year = button.getAttribute('data-year');
+
+            document.getElementById('edit_student_id').value = id || '';
+            document.getElementById('edit_name').value = name || '';
+            document.getElementById('edit_email').value = email || '';
+            document.getElementById('edit_phone').value = phone || '';
+            document.getElementById('edit_department').value = dept || '';
+            document.getElementById('edit_course').value = course || '';
+            document.getElementById('edit_admission_year').value = year || '2024';
+
+            const editForm = document.getElementById('editStudentForm');
+            editForm.action = `/edit/${id}`;
+        });
+    }
+
+    // Delete Modal population
+    const deleteModal = document.getElementById('deleteStudentModal');
+    if (deleteModal) {
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            const button = event.relatedTarget;
+            const id = button.getAttribute('data-id');
+            const name = button.getAttribute('data-name');
+
+            document.getElementById('delete_student_id').value = id || '';
+            document.getElementById('delete_student_name').textContent = name || '';
+            document.getElementById('delete_student_badge').textContent = `ID #${id}`;
+
+            const deleteForm = document.getElementById('deleteStudentForm');
+            deleteForm.action = `/delete/${id}`;
+        });
+    }
+
+    // Bootstrap validation feedback
+    const forms = document.querySelectorAll('.needs-validation');
+    Array.from(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        }, false);
+    });
+});
+</script>
+
+</body>
+</html>
