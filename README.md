@@ -241,7 +241,7 @@ Open **`http://localhost:5000`** in any modern web browser to access the live da
 
 ## 👨‍💻 Developer & Maintainer
 
-- **Architect**: [datttux](https://github.com/datttux)
+
 - **Repository**: [StudentManagemnet_Flask_App](https://github.com/datttux/StudentManagemnet_Flask_App)
 - **Class**: Calibo Python Data Engineering Cohort
 
